@@ -1,0 +1,19 @@
+{
+	"name": "@pingmark/web",
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"leaflet": "^1.9.4"
+	},
+	"devDependencies": {
+		"vite": "^5.4.0",
+		"@types/leaflet": "^1.9.12",
+		"typescript": "^5.6.3",
+		"husky": "^9.0.0"
+	}
+}

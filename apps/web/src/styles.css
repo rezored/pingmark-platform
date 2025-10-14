@@ -1,0 +1,21 @@
+html, body, #app {
+    height: 100%;
+    margin: 0;
+}
+
+#map {
+    height: calc(100% - 60px);
+}
+
+.toolbar {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .1);
+}
+
+.code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
