@@ -6,7 +6,7 @@ export const TS_ISO = /\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z?/;
 export const TS_UNIX = /\\d{10}(?:\\d{3})?/; // sec or ms
 
 const RE = new RegExp(
-	String.raw`(?:^|\\b)!@\\s*(${LAT})\\s*,\\s*(${LON})(?:\\s*[;|,]\\s*(${TS_ISO.source}|${TS_UNIX.source}))?(?=\\b|$)`,
+	`(?:^|\\W)!@\\s*(${LAT})\\s*,\\s*(${LON})(?:\\s*[;|,]\\s*(${TS_ISO.source}|${TS_UNIX.source}))?(?=\\b|$)`,
 	"g"
 );
 

@@ -9,6 +9,7 @@
 		"dev": "echo \"Run api & web in separate terminals: pnpm --filter @pingmark/api dev && pnpm --filter @pingmark/web dev\""
 	},
 	"devDependencies": {
+		"@types/node": "^24.7.2",
 		"@typescript-eslint/eslint-plugin": "^8.7.0",
 		"@typescript-eslint/parser": "^8.7.0",
 		"eslint": "^9.10.0",

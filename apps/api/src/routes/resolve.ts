@@ -1,5 +1,15 @@
 import {FastifyInstance} from "fastify";
-import {parsePingmarks} from "@pingmark/parser";
+import {parsePingmarks, TS_ISO, TS_UNIX} from "@pingmark/parser";
+
+function normalizeTs(ts: string | undefined): number | undefined {
+	if (!ts) return undefined;
+	if (TS_UNIX.test(ts)) return ts.length > 10 ? Math.floor(Number(ts) / 1000) : Number(ts);
+	if (TS_ISO.test(ts)) {
+		const d = new Date(ts);
+		if (!isNaN(d.getTime())) return Math.floor(d.getTime() / 1000);
+	}
+	return undefined;
+}
 
 export default async function routes(f: FastifyInstance) {
 	f.get("/resolve", async (req, reply) => {
@@ -20,7 +30,8 @@ export default async function routes(f: FastifyInstance) {
 		if (isNaN(nLat) || isNaN(nLon) || nLat < -90 || nLat > 90 || nLon < -180 || nLon > 180) {
 			return reply.code(400).send({error: "Invalid coordinates"});
 		}
-		const url = `https://pingmark.me/${nLat.toFixed(6)}/${nLon.toFixed(6)}${ts ? `/${Number(ts)}` : ""}`;
-		return {lat: Number(nLat.toFixed(6)), lon: Number(nLon.toFixed(6)), timestamp: ts ? Number(ts) : undefined, url};
+		const tsSec = normalizeTs(ts);
+		const url = `https://pingmark.me/${nLat.toFixed(6)}/${nLon.toFixed(6)}${tsSec ? `/${tsSec}` : ""}`;
+		return {lat: Number(nLat.toFixed(6)), lon: Number(nLon.toFixed(6)), timestamp: tsSec, url};
 	});
 }

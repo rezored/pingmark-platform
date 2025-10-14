@@ -1,5 +1,14 @@
 {
 	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"types": ["node"],
+		"baseUrl": "../../",
+		"paths": {
+			"@pingmark/parser": ["packages/parser/src/index.ts"]
+		}
+	},
 	"include": [
 		"src"
 	]

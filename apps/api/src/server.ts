@@ -11,8 +11,11 @@ const server = Fastify({
 });
 
 await server.register(cors, { origin: true });
+// Expose API under /api
 await server.register(resolveRoutes, { prefix: "/api" });
 await server.register(previewRoutes, { prefix: "/api" });
+// Also expose coordinate routes at root (no prefix) to handle direct links like /lat/lon/ts
+await server.register(resolveRoutes);
 
 server.get("/healthz", async () => ({ ok: true }));
 
