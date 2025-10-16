@@ -1,23 +1,29 @@
 {
-  "name": "pingmark-platform",
-  "version": "1.0.0",
-  "description": "Pingmark Platform - Three independent applications for pingmark.me, map.pingmark.me, and api.pingmark.me",
-  "private": true,
-  "scripts": {
-    "test": "echo 'No tests configured for this simplified structure'",
-    "clean": "echo 'Project cleaned - ready for deployment'"
-  },
-  "keywords": [
-    "pingmark",
-    "location",
-    "protocol",
-    "spatial",
-    "maps"
-  ],
-  "author": "Kalin Dimitrov",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/yourusername/pingmark-platform.git"
-  }
+	"name": "pingmark-platform",
+	"version": "1.0.0",
+	"description": "Pingmark Platform - Three independent applications for pingmark.me, map.pingmark.me, and api.pingmark.me",
+	"private": true,
+	"scripts": {
+		"test": "echo 'No tests configured for this simplified structure'",
+		"clean": "echo 'Project cleaned - ready for deployment'",
+		"build": "npm run -w @pingmark/sdk build && npm run -w map build && npm run -w landing build"
+	},
+	"keywords": [
+		"pingmark",
+		"location",
+		"protocol",
+		"spatial",
+		"maps"
+	],
+	"author": "Kalin Dimitrov",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/yourusername/pingmark-platform.git"
+	},
+	"workspaces": [
+		"packages",
+		"landing",
+		"map"
+	]
 }

@@ -1,0 +1,1 @@
+export type Pingmark = { lat: number; lon: number; ts?: string };

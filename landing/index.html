@@ -1,407 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pingmark™: A Protocol for Universal Spatial Mentions</title>
-  <base href="/">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <link rel="icon" type="image/x-icon" href="images/favicon.ico?v=2"/>
-  <style>
-    .code-block {
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 8px;
-      padding: 16px;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 14px;
-      overflow-x: auto;
-    }
-    .pingmark-logo {
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.8; }
-    }
-  </style>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Pingmark™: A Protocol for Universal Spatial Mentions</title>
+    <base href="/">
+
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="/assets/styles.css"/>
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico"/>
 </head>
 <body class="p-4 sm:p-8">
 
 <div class="max-w-5xl mx-auto">
-  <div class="flex justify-between items-center mb-4">
-    <div></div>
-    <div class="flex">
-      <button id="lang-en" class="px-3 py-1 text-sm rounded-l-lg font-semibold border border-red-500 bg-red-500 text-white transition" onclick="switchLanguage('en')">English</button>
-      <button id="lang-bg" class="px-3 py-1 text-sm rounded-r-lg font-semibold border border-gray-300 text-gray-600 hover:bg-gray-100 transition" onclick="switchLanguage('bg')">Български</button>
-    </div>
-  </div>
-
-  <header class="text-center mb-10">
-    <h1 class="text-5xl font-extrabold text-gray-900 mb-2 flex items-center justify-center">
-      <div class="pingmark-logo">
-        <img src="images/pingmark_logo_full.png" alt="pingmark.me logo" class="w-24 h-24">
-      </div>
-    </h1>
-    <p id="header-subtitle" class="text-xl text-gray-600 mt-4">A Universal Textual Protocol for Spatial Mentions (PPS v0.1)</p>
-  </header>
-
-  <!-- Interactive Demo Section -->
-  <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-xl mb-12 border border-gray-100">
-    <h2 id="demo-title" class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-      <img src="images/pingmark_logo_icon.png" alt="pingmark.me logo" class="w-8 h-8 mr-3"/>
-      Try Pingmark™
-    </h2>
-    
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <!-- Demo Map -->
-      <div>
-        <h3 class="text-lg font-semibold mb-3">Live Demo</h3>
-        <div id="demo-map" class="h-64 rounded-lg border border-gray-200"></div>
-        <p class="text-sm text-gray-600 mt-2">Click "Use my location" to see your current position</p>
-      </div>
-      
-      <!-- Demo Controls -->
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Test with sample coordinates:</label>
-          <button id="btn-demo" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
-            View Sofia, Bulgaria
-          </button>
+    <div class="flex justify-between items-center mb-4">
+        <div></div>
+        <div class="flex">
+            <button id="lang-en" class="px-3 py-1 text-sm rounded-l-lg font-semibold border border-red-500 bg-red-500 text-white transition">English</button>
+            <button id="lang-bg" class="px-3 py-1 text-sm rounded-r-lg font-semibold border border-gray-300 text-gray-600 hover:bg-gray-100 transition">Български</button>
         </div>
-        
-        <div class="border-t pt-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Or use your current location:</label>
-          <button id="btn-use-location" class="w-full px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition">
-            Use my location
-          </button>
+    </div>
+
+    <header class="text-center mb-10">
+        <h1 class="text-5xl font-extrabold text-gray-900 mb-2 flex items-center justify-center">
+            <div class="pingmark-logo">
+                <img src="images/pingmark_logo_full.png" alt="pingmark.me logo" class="w-24 h-24">
+            </div>
+        </h1>
+        <p id="header-subtitle" class="text-xl text-gray-600 mt-4">A Universal Textual Protocol for Spatial Mentions (PPS v0.1)</p>
+    </header>
+
+    <!-- Interactive Demo Section -->
+    <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-xl mb-12 border border-gray-100">
+        <h2 id="demo-title" class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+            <img src="images/pingmark_logo_icon.png" alt="pingmark.me logo" class="w-8 h-8 mr-3"/>
+            Try Pingmark™
+        </h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Demo Map -->
+            <div>
+                <h3 class="text-lg font-semibold mb-3">Live Demo</h3>
+                <div id="demo-map" class="h-64 rounded-lg border border-gray-200"></div>
+                <p class="text-sm text-gray-600 mt-2" id="status-hint">Click "Use my location" to see your current position</p>
+            </div>
+
+            <!-- Demo Controls -->
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Test with sample coordinates:</label>
+                    <button id="btn-demo" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                        View Sofia, Bulgaria
+                    </button>
+                </div>
+
+                <div class="border-t pt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Or use your current location:</label>
+                    <button id="btn-use-location" class="w-full px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition">
+                        Use my location
+                    </button>
+                </div>
+
+                <div class="border-t pt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Test the protocol:</label>
+                    <div class="flex gap-2">
+                        <input id="pm-text" class="flex-1 border rounded-lg px-3 py-2 text-sm" placeholder="Paste text with !@ 42.6977,23.3219"/>
+                        <button id="btn-resolve" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Resolve</button>
+                    </div>
+                    <div id="status" class="text-sm text-gray-600 mt-2"></div>
+                </div>
+            </div>
         </div>
-        
-        <div class="border-t pt-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Test the protocol:</label>
-          <div class="flex gap-2">
-            <input id="pm-text" class="flex-1 border rounded-lg px-3 py-2 text-sm" placeholder="Paste text with !@ 42.6977,23.3219"/>
-            <button id="btn-resolve" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Resolve</button>
-          </div>
-          <div id="status" class="text-sm text-gray-600 mt-2"></div>
+    </section>
+
+    <section class="mb-16">
+        <h2 id="syntax-title" class="text-3xl font-bold text-gray-900 mb-8 text-center">How Pingmark™ Works</h2>
+        <div class="space-y-6 text-lg text-gray-700 mb-8">
+            <p id="explanation-p1" class="text-center max-w-2xl mx-auto">
+                Pingmark™ defines a minimal protocol (<strong>PPS v0.1</strong>) that transforms location from a complex "feature" into a <strong>simple textual element</strong>. Similar to <code class="font-mono">@</code> for usernames and <code class="font-mono">#</code> for hashtags, <strong>!@</strong> is the universal token for physical space.
+            </p>
         </div>
-      </div>
-    </div>
-  </section>
 
-  <section class="mb-16">
-    <h2 id="syntax-title" class="text-3xl font-bold text-gray-900 mb-8 text-center">How Pingmark™ Works</h2>
-    <div class="space-y-6 text-lg text-gray-700 mb-8">
-      <p id="explanation-p1" class="text-center max-w-2xl mx-auto">
-        Pingmark™ defines a minimal protocol (<strong>PPS v0.1</strong>) that transforms location from a complex "feature" into a <strong>simple textual element</strong>. Similar to <code class="font-mono">@</code> for usernames and <code class="font-mono">#</code> for hashtags, <strong>!@</strong> is the universal token for physical space.
-      </p>
-    </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+            <div class="p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition border border-gray-200">
+                <div class="text-red-500 mb-4 mx-auto w-12 h-12">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 20.25H8.625v-1.957l8.237-8.238Z"/>
+                    </svg>
+                </div>
+                <h3 id="flow-h3-1" class="text-xl font-semibold text-gray-800 mb-2">1. The Text Trigger</h3>
+                <p id="flow-p1" class="text-gray-600 text-sm">User types the trigger: <code class="font-mono font-semibold">"I am at <strong>!@</strong>"</code> in any app or text field.</p>
+            </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-      <div class="p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition border border-gray-200">
-        <div class="text-red-500 mb-4 mx-auto w-12 h-12">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 20.25H8.625v-1.957l8.237-8.238Z"/>
-          </svg>
+            <div class="p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition border border-gray-200">
+                <div class="text-red-500 mb-4 mx-auto w-12 h-12">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
+                    </svg>
+                </div>
+                <h3 id="flow-h3-2" class="text-xl font-semibold text-gray-800 mb-2">2. Local Coordinate Generation</h3>
+                <p id="flow-p2" class="text-gray-600 text-sm">The client (L1 Parser) uses the device's GPS to silently grab <code class='font-mono font-semibold'>/Lat/Lon</code>.</p>
+            </div>
+
+            <div class="p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition border border-gray-200">
+                <div class="text-red-500 mb-4 mx-auto w-12 h-12">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.241-1.241m5.253-3.671L15.81 8.24m5.253 3.671-3.671-5.253M12 21.75V15.75m0-6V3.75"/>
+                    </svg>
+                </div>
+                <h3 id="flow-h3-3" class="text-xl font-semibold text-gray-800 mb-2">3. The Resolver Link</h3>
+                <p id="flow-p3" class="text-gray-600 text-sm">The final, shareable, and open URL is generated: <code class='font-mono text-xs font-semibold'>map.pingmark.me/Lat/Lon/...</code></p>
+            </div>
         </div>
-        <h3 id="flow-h3-1" class="text-xl font-semibold text-gray-800 mb-2">1. The Text Trigger</h3>
-        <p id="flow-p1" class="text-gray-600 text-sm">User types the trigger: <code class="font-mono font-semibold">"I am at <strong>!@</strong>"</code> in any app or text field.</p>
-      </div>
 
-      <div class="p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition border border-gray-200">
-        <div class="text-red-500 mb-4 mx-auto w-12 h-12">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
-          </svg>
+        <div class="mt-8 p-5 bg-yellow-50 border-l-4 border-yellow-500 rounded-lg max-w-3xl mx-auto">
+            <p id="explanation-key" class="font-semibold text-yellow-800 text-base">
+                <strong>Crucially:</strong> <strong>!@</strong> never contains coordinates. They are generated <strong>locally</strong> by your client application (e.g., keyboard or browser extension) and embedded into a standardized, open URL.
+            </p>
         </div>
-        <h3 id="flow-h3-2" class="text-xl font-semibold text-gray-800 mb-2">2. Local Coordinate Generation</h3>
-        <p id="flow-p2" class="text-gray-600 text-sm">The client (L1 Parser) uses the device's GPS to silently grab <code class='font-mono font-semibold'>/Lat/Lon</code>.</p>
-      </div>
+    </section>
 
-      <div class="p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition border border-gray-200">
-        <div class="text-red-500 mb-4 mx-auto w-12 h-12">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.241-1.241m5.253-3.671L15.81 8.24m5.253 3.671-3.671-5.253M12 21.75V15.75m0-6V3.75"/>
-          </svg>
+    <section class="bg-gray-100 p-6 sm:p-8 rounded-xl mb-16">
+        <h2 id="structure-title" class="text-3xl font-bold text-gray-900 mb-6">Protocol Structure (PPS v0.1)</h2>
+        <div class="space-y-4">
+            <h3 class="text-xl font-semibold text-gray-800">Standard Resolver Link</h3>
+            <div class="code-block"><code class="font-mono">https://map.pingmark.me/&lt;latitude&gt;/&lt;longitude&gt;[/&lt;timestamp&gt;]</code></div>
+            <ul class="list-disc list-inside text-gray-700 ml-4">
+                <li id="syntax-li-1"><code class="font-mono">latitude/longitude</code>: Generated locally by the device's GPS.</li>
+                <li id="syntax-li-2"><code class="font-mono">[timestamp]</code>: Optional (ISO 8601), indicating the ephemerality of the location.</li>
+            </ul>
         </div>
-        <h3 id="flow-h3-3" class="text-xl font-semibold text-gray-800 mb-2">3. The Resolver Link</h3>
-        <p id="flow-p3" class="text-gray-600 text-sm">The final, shareable, and open URL is generated: <code class='font-mono text-xs font-semibold'>map.pingmark.me/Lat/Lon/...</code></p>
-      </div>
-    </div>
+    </section>
 
-    <div class="mt-8 p-5 bg-yellow-50 border-l-4 border-yellow-500 rounded-lg max-w-3xl mx-auto">
-      <p id="explanation-key" class="font-semibold text-yellow-800 text-base">
-        <strong>Crucially:</strong> <strong>!@</strong> never contains coordinates. They are generated <strong>locally</strong> by your client application (e.g., keyboard or browser extension) and embedded into a standardized, open URL.
-      </p>
-    </div>
-  </section>
+    <section class="text-center p-8 bg-red-600 text-white rounded-xl shadow-2xl">
+        <h2 id="open-title" class="text-3xl font-bold mb-4">Openness and Privacy</h2>
+        <p id="open-p1" class="text-xl mb-6">Pingmark™ is designed as an <strong>Open Standard</strong>.</p>
+        <div class="flex flex-col sm:flex-row justify-center gap-6">
+            <div class="flex items-center justify-center font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 mr-2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                </svg>
+                <span id="open-no-tracking"><strong>No Tracking:</strong> Coordinates are not stored centrally.</span>
+            </div>
+            <div class="flex items-center justify-center font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 mr-2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5M2 6.75h3 3M7.5 9h3M9 12h3M7.5 15h3M12 9h3M13.5 12h3M12 15h3M21 12c0 2.209-1.99 4-4.444 4A4.444 4.444 0 0 1 12 12c0-2.209 1.99-4 4.444-4A4.444 4.444 0 0 1 21 12Z"/>
+                </svg>
+                <span id="open-source-text"><strong>Open Source:</strong> The reference code will be publicly available on GitHub.</span>
+            </div>
+        </div>
+        <a id="github-link-button" href="https://github.com/YourGitHub/pingmark" target="_blank" class="mt-8 inline-block px-8 py-3 bg-white text-red-600 font-bold rounded-lg shadow-xl hover:bg-gray-100 transition">View Code on GitHub</a>
+    </section>
 
-  <section class="bg-gray-100 p-6 sm:p-8 rounded-xl mb-16">
-    <h2 id="structure-title" class="text-3xl font-bold text-gray-900 mb-6">Protocol Structure (PPS v0.1)</h2>
-    <div class="space-y-4">
-      <h3 class="text-xl font-semibold text-gray-800">Standard Resolver Link</h3>
-      <div class="code-block"><code class="font-mono">https://map.pingmark.me/&lt;latitude&gt;/&lt;longitude&gt;[/&lt;timestamp&gt;]</code></div>
-      <ul class="list-disc list-inside text-gray-700 ml-4">
-        <li id="syntax-li-1"><code class="font-mono">latitude/longitude</code>: Generated locally by the device's GPS.</li>
-        <li id="syntax-li-2"><code class="font-mono">[timestamp]</code>: Optional (ISO 8601), indicating the ephemerality of the location.</li>
-      </ul>
-    </div>
-  </section>
-
-  <section class="text-center p-8 bg-red-600 text-white rounded-xl shadow-2xl">
-    <h2 id="open-title" class="text-3xl font-bold mb-4">Openness and Privacy</h2>
-    <p id="open-p1" class="text-xl mb-6">Pingmark™ is designed as an <strong>Open Standard</strong>.</p>
-    <div class="flex flex-col sm:flex-row justify-center gap-6">
-      <div class="flex items-center justify-center font-medium">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 mr-2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-        </svg>
-        <span id="open-no-tracking"><strong>No Tracking:</strong> Coordinates are not stored centrally.</span>
-      </div>
-      <div class="flex items-center justify-center font-medium">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 mr-2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5M2 6.75h3 3M7.5 9h3M9 12h3M7.5 15h3M12 9h3M13.5 12h3M12 15h3M21 12c0 2.209-1.99 4-4.444 4A4.444 4.444 0 0 1 12 12c0-2.209 1.99-4 4.444-4A4.444 4.444 0 0 1 21 12Z"/>
-        </svg>
-        <span id="open-source-text"><strong>Open Source:</strong> The reference code will be publicly available on GitHub.</span>
-      </div>
-    </div>
-    <a id="github-link-button" href="https://github.com/YourGitHub/pingmark" target="_blank" class="mt-8 inline-block px-8 py-3 bg-white text-red-600 font-bold rounded-lg shadow-xl hover:bg-gray-100 transition">View Code on GitHub</a>
-  </section>
-
-  <footer class="text-center mt-16 pt-6 border-t border-gray-200 text-gray-500 text-sm">
-    <p id="footer-text">&copy; 2025 Pingmark™ Protocol. Developed by Kalin Dimitrov. All rights reserved.</p>
-  </footer>
+    <footer class="text-center mt-16 pt-6 border-t border-gray-200 text-gray-500 text-sm">
+        <p id="footer-text">&copy; 2025 Pingmark™ Protocol. Developed by Kalin Dimitrov. All rights reserved.</p>
+    </footer>
 </div>
 
+<!-- Leaflet JS (след CSS) -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-  // Language content
-  const content = {
-    en: {
-      demo_title: "Try Pingmark™",
-      demo_sofia: "View Sofia, Bulgaria",
-      demo_location: "Use my location",
-      demo_protocol: "Test the protocol:",
-      demo_placeholder: "Paste text with !@ 42.6977,23.3219",
-      demo_resolve: "Resolve",
-      demo_status: "Click 'Use my location' to see your current position",
-      header_subtitle: "A Universal Textual Protocol for Spatial Mentions (PPS v0.1)",
-      explanation_p1: 'Pingmark™ defines a minimal protocol (<strong>PPS v0.1</strong>) that transforms location from a complex "feature" into a <strong>simple textual element</strong>. Similar to <code class="font-mono">@</code> for usernames and <code class="font-mono">#</code> for hashtags, <strong>!@</strong> is the universal token for physical space.',
-      explanation_key: '<strong>Crucially:</strong> <strong>!@</strong> never contains coordinates. They are generated <strong>locally</strong> by your client application (e.g., keyboard or browser extension) and embedded into a standardized, open URL.',
-      structure_title: "Protocol Structure (PPS v0.1)",
-      flow_h3_1: "1. The Text Trigger",
-      flow_p1: 'User types the trigger: <code class="font-mono font-semibold">"I am at <strong>!@</strong>"</code> in any app or text field.',
-      flow_h3_2: "2. Local Coordinate Generation",
-      flow_p2: "The client (L1 Parser) uses the device's GPS to silently grab <code class='font-mono font-semibold'>/Lat/Lon</code>.",
-      flow_h3_3: "3. The Resolver Link",
-      flow_p3: "The final, shareable, and open URL is generated: <code class='font-mono text-xs font-semibold'>map.pingmark.me/Lat/Lon/...</code>",
-      syntax_li_1: '<code class="font-mono">latitude/longitude</code>: Generated locally by the device\'s GPS.',
-      syntax_li_2: '<code class="font-mono">[timestamp]</code>: Optional (ISO 8601), indicating the ephemerality of the location.',
-      open_title: "Openness and Privacy",
-      open_p1: 'Pingmark™ is designed as an <strong>Open Standard</strong>.',
-      open_no_tracking: '<strong>No Tracking:</strong> Coordinates are not stored centrally.',
-      open_source_text: '<strong>Open Source:</strong> The reference code will be publicly available on GitHub.',
-      github_link_button: "View Code on GitHub",
-      footer_text: '&copy; 2025 Pingmark™ Protocol. Developed by Kalin Dimitrov. All rights reserved.'
-    },
-    bg: {
-      demo_title: "Опитайте Pingmark™",
-      demo_sofia: "Вижте София, България",
-      demo_location: "Използвайте моята локация",
-      demo_protocol: "Тествайте протокола:",
-      demo_placeholder: "Поставете текст с !@ 42.6977,23.3219",
-      demo_resolve: "Реши",
-      demo_status: "Кликнете 'Използвайте моята локация' за да видите текущата си позиция",
-      header_subtitle: "Универсален Текстов Протокол за Пространствени Споменавания (PPS v0.1)",
-      explanation_p1: 'Pingmark™ дефинира минимален протокол (<strong>PPS v0.1</strong>), който превръща локацията от сложна "функция" в <strong>прост текстов елемент</strong>. Подобно на <code class="font-mono">@</code> за потребителски имена и <code class="font-mono">#</code> за хаштагове, <strong>!@</strong> е универсалният токен за физическо пространство.',
-      explanation_key: '<strong>Ключово:</strong> <strong>!@</strong> никога не съдържа координати. Те се генерират <strong>локално</strong> от Вашето клиентско приложение (напр. клавиатура или браузър) и се вграждат в стандартен, отворен URL.',
-      structure_title: "Структура на Протокола (PPS v0.1)",
-      flow_h3_1: "1. Текстов Тригер",
-      flow_p1: 'Потребителят въвежда тригера: <code class="font-mono font-semibold">"Аз съм на <strong>!@</strong>"</code> във всяко приложение или текстово поле.',
-      flow_h3_2: "2. Локално Генериране на Координати",
-      flow_p2: "Клиентът (L1 Parser) използва GPS на устройството, за да вземе тихо <code class='font-mono font-semibold'>/Lat/Lon</code>.",
-      flow_h3_3: "3. Resolver Link",
-      flow_p3: "Генерира се крайният, споделяем и отворен URL: <code class='font-mono text-xs font-semibold'>map.pingmark.me/Lat/Lon/...</code>",
-      syntax_li_1: '<code class="font-mono">latitude/longitude</code>: Генерирани локално от GPS на устройството.',
-      syntax_li_2: '<code class="font-mono">[timestamp]</code>: Незадължителен (ISO 8601), указващ ефемерността на локацията.',
-      open_title: "Отвореност и Поверителност",
-      open_p1: 'Pingmark™ е проектиран като <strong>Отворен Стандарт</strong>.',
-      open_no_tracking: '<strong>Без Проследяване:</strong> Координатите не се съхраняват централно.',
-      open_source_text: '<strong>Отворен Код:</strong> Референтният код ще бъде публичен в GitHub.',
-      github_link_button: "Вижте Кода в GitHub",
-      footer_text: '&copy; 2025 Pingmark™ Protocol. Разработен от Kalin Dimitrov. Всички права запазени.'
-    }
-  };
-
-  let currentLang = 'en';
-  let demoMap = null;
-  let demoMarker = null;
-
-  // Custom Pingmark icon
-  const pingIcon = L.icon({
-    iconUrl: 'images/pingmark_logo_icon.png',
-    iconSize: [36, 44],
-    iconAnchor: [18, 44],
-    popupAnchor: [0, -44]
-  });
-
-  function switchLanguage(lang) {
-    currentLang = lang;
-    const data = content[lang];
-
-    // Update all text content
-    document.getElementById('header-subtitle').textContent = data.header_subtitle;
-    document.getElementById('demo-title').innerHTML = `
-      <img src="images/pingmark_logo_icon.png" alt="pingmark.me logo" class="w-8 h-8 mr-3"/>${data.demo_title}`;
-    
-    document.getElementById('btn-demo').textContent = data.demo_sofia;
-    document.getElementById('btn-use-location').textContent = data.demo_location;
-    document.getElementById('pm-text').placeholder = data.demo_placeholder;
-    document.getElementById('btn-resolve').textContent = data.demo_resolve;
-    document.getElementById('status').textContent = data.demo_status;
-
-    document.getElementById('explanation-p1').innerHTML = data.explanation_p1;
-    document.getElementById('explanation-key').innerHTML = data.explanation_key;
-    document.getElementById('structure-title').textContent = data.structure_title;
-
-    document.getElementById('flow-h3-1').textContent = data.flow_h3_1;
-    document.getElementById('flow-p1').innerHTML = data.flow_p1;
-    document.getElementById('flow-h3-2').textContent = data.flow_h3_2;
-    document.getElementById('flow-p2').innerHTML = data.flow_p2;
-    document.getElementById('flow-h3-3').textContent = data.flow_h3_3;
-    document.getElementById('flow-p3').innerHTML = data.flow_p3;
-
-    document.getElementById('syntax-li-1').innerHTML = data.syntax_li_1;
-    document.getElementById('syntax-li-2').innerHTML = data.syntax_li_2;
-
-    document.getElementById('open-title').textContent = data.open_title;
-    document.getElementById('open-p1').innerHTML = data.open_p1;
-    document.getElementById('open-no-tracking').innerHTML = data.open_no_tracking;
-    document.getElementById('open-source-text').innerHTML = data.open_source_text;
-    document.getElementById('github-link-button').textContent = data.github_link_button;
-    document.getElementById('footer-text').innerHTML = data.footer_text;
-
-    // Update button styles
-    const enBtn = document.getElementById('lang-en');
-    const bgBtn = document.getElementById('lang-bg');
-    
-    enBtn.classList.toggle('bg-red-500', lang === 'en');
-    enBtn.classList.toggle('text-white', lang === 'en');
-    enBtn.classList.toggle('border-gray-300', lang === 'bg');
-    enBtn.classList.toggle('text-gray-600', lang === 'bg');
-    enBtn.classList.toggle('border-red-500', lang === 'en');
-
-    bgBtn.classList.toggle('bg-red-500', lang === 'bg');
-    bgBtn.classList.toggle('text-white', lang === 'bg');
-    bgBtn.classList.toggle('border-gray-300', lang === 'en');
-    bgBtn.classList.toggle('text-gray-600', lang === 'en');
-    bgBtn.classList.toggle('border-red-500', lang === 'bg');
-  }
-
-  function initDemoMap() {
-    if (demoMap) return;
-    
-    demoMap = L.map('demo-map').setView([43.0768, 25.6315], 10);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(demoMap);
-    
-    // Add Sofia marker
-    demoMarker = L.marker([42.6977, 23.3219], { icon: pingIcon }).addTo(demoMap);
-    demoMarker.bindPopup('<b>Pingmark Demo</b><br>Sofia, Bulgaria<br><small>Click "View Sofia" to see full map</small>');
-  }
-
-  async function useMyLocation() {
-    const status = document.getElementById('status');
-    status.textContent = 'Requesting location...';
-    
-    try {
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000
-        });
-      });
-      
-      const { latitude, longitude } = position.coords;
-      const timestamp = Math.floor(Date.now() / 1000);
-      
-      // Update demo map
-      if (demoMap && demoMarker) {
-        demoMap.setView([latitude, longitude], 15);
-        demoMarker.setLatLng([latitude, longitude]);
-        demoMarker.bindPopup(`<b>Your Location</b><br>${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-      }
-      
-      // Generate link to map viewer
-      const url = `https://map.pingmark.me/${latitude.toFixed(6)}/${longitude.toFixed(6)}/${timestamp}`;
-      status.innerHTML = `Location found! <a href="${url}" target="_blank" class="text-blue-600 underline">View on full map</a>`;
-      
-    } catch (error) {
-      status.textContent = 'Location permission denied or unavailable.';
-    }
-  }
-
-  function viewSofia() {
-    const url = 'https://map.pingmark.me/42.6977/23.3219';
-    window.open(url, '_blank');
-  }
-
-  async function resolveText() {
-    const input = document.getElementById('pm-text');
-    const status = document.getElementById('status');
-    const text = input.value.trim();
-    
-    if (!text) {
-      status.textContent = 'Please enter text with a pingmark first.';
-      return;
-    }
-    
-    status.textContent = 'Resolving...';
-    
-    try {
-      const response = await fetch(`https://api.pingmark.me/api/resolve?text=${encodeURIComponent(text)}`);
-      const data = await response.json();
-      
-      if (!response.ok) {
-        status.textContent = data.error || `Error ${response.status}`;
-        return;
-      }
-      
-      const match = data.matches?.[0];
-      if (!match) {
-        status.textContent = 'No pingmark found in text.';
-        return;
-      }
-      
-      const url = `https://map.pingmark.me/${match.lat.toFixed(6)}/${match.lon.toFixed(6)}${match.timestamp ? `/${match.timestamp}` : ''}`;
-      status.innerHTML = `Found pingmark! <a href="${url}" target="_blank" class="text-blue-600 underline">View location</a>`;
-      
-    } catch (error) {
-      status.textContent = 'Network error occurred.';
-    }
-  }
-
-  // Initialize everything
-  document.addEventListener('DOMContentLoaded', () => {
-    // Set up event listeners
-    document.getElementById('btn-use-location').addEventListener('click', useMyLocation);
-    document.getElementById('btn-demo').addEventListener('click', viewSofia);
-    document.getElementById('btn-resolve').addEventListener('click', resolveText);
-    document.getElementById('pm-text').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') resolveText();
-    });
-    
-    // Initialize demo map
-    initDemoMap();
-    
-    // Set initial language
-    const browserLang = (navigator.language || 'en').split('-')[0];
-    switchLanguage((browserLang === 'bg' || browserLang === 'en') ? browserLang : 'en');
-  });
+<script type="importmap">
+	{
+		"imports": {
+			"@pingmark/sdk": "/vendor/sdk/index.js"
+		}
+	}
 </script>
+<!-- Нашият код -->
+<script type="module" src="/assets/main.js"></script>
 </body>
 </html>
