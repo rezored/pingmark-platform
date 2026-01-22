@@ -1,0 +1,80 @@
+Pingmark Protocol Specification (PPS v0.2): Toward an Open Standard for Spatial Mentions
+Kalin Dimitrov
+Independent Researcher, M.Sc. Student
+Veliko Tarnovo University “St. Cyril and St. Methodius”, Bulgaria
+Email: s2509014279@sd.uni-vt.bg
+Abstract
+Pingmark defines a universal textual protocol for representing spatial context through a minimal, semantic symbol: !@. Building on the previous version of the specification (arXiv:2510.09672, DOI: 10.48550/arXiv.2510.09672), this paper expands the protocol to include formal syntax, reference parser implementation, and privacy guidelines. Unlike conventional “share location” functions bound to specific applications, Pingmark treats location as a textual primitive—analogous to @ for identity and # for topics. The protocol enables compliant clients to recognize !@ as a spatial mention and automatically generate standardized resolver links of the form https://pingmark.me/<latitude>/<longitude>[/<timestamp>]. This document presents the Pingmark Protocol Specification (PPS v0.2), intended as a candidate for open standardization under CEUR-WS and CompSysTech research initiatives.
+Keywords
+textual protocol, open standard, location sharing, semantic web, human-computer interaction
+1 Introduction
+The modern Internet allows instant textual exchange, yet location remains an external feature handled by closed ecosystems. Each messenger—Viber, Telegram, WhatsApp, Messenger—implements its own interface for location sharing, inaccessible to others. Pingmark redefines this concept by treating location as a linguistic unit. When users type !@, they express “I am at,” and compliant systems interpret it through an open protocol. This shift from action to semantics aligns with the Web’s evolution toward machine-readable text and cross-platform interoperability.
+2 Related Work
+Several efforts demonstrate that semantics can emerge from symbols: geo: URI (RFC 5870) formalized coordinate encoding but lacked usability; Plus Codes (Open Location Code) provided open addresses, not conversational use; what3words mapped coordinates to human words—proprietary, not open; Microformats, W3C Web Annotation Model, and ActivityPub showed how human symbols can gain machine interpretation; and @ and # syntax proved that tiny textual markers can evolve into global communication primitives. Pingmark continues this tradition, positioning itself as the semantic bridge between text and space.
+3 Pingmark Protocol Specification (PPS v0.2)
+Pingmark provides a single, universal syntax (!@) representing spatial mentions inside text. It defines how software should interpret, generate, and visualize corresponding map data using open standards.
+3.1 Syntax (ABNF)
+pingmark-token  = "!@"
+pingmark-link   = "https://pingmark.me/" latitude "/" longitude [ "/" timestamp ]
+latitude         = ["-"]1*DIGIT "." 1*DIGIT
+longitude        = ["-"]1*DIGIT "." 1*DIGIT
+timestamp        = 4DIGIT "-" 2DIGIT "-" 2DIGIT "T" 2DIGIT ":" 2DIGIT "Z"
+3.2 Processing Rules
+1. Detect the token !@ in text.
+2. Retrieve device coordinates locally.
+3. Generate resolver link.
+4. Optionally append timestamp.
+5. Replace token with link or preview.
+3.3 Example
+User input: “Arrived safely !@” → Output: “Arrived safely https://pingmark.me/43.0842/25.6550/2025-10-14T12:10Z”.
+4 Parser Implementation Example
+// Pingmark Parser v0.2 — Reference Example
+function pingmarkParser(text, coords) {
+  return text.replace(/!@/g, () => {
+    const { lat, lon } = coords;
+    const timestamp = new Date().toISOString().slice(0, 19) + 'Z';
+    return `https://pingmark.me/${lat}/${lon}/${timestamp}`;
+  });
+}
+console.log(pingmarkParser("Arrived !@", { lat: 43.0842, lon: 25.6550 }));
+5 Security and Privacy Annex
+Risk	Mitigation
+Coordinate spoofing	Use trusted device geolocation API
+Data persistence	Resolver cache limited to 24 hours
+Link leakage	Optional resolver key signing
+Tracking risk	No user identifiers or analytics stored
+6 System Architecture
++---------------------+
+|  User types !@      |
++---------------------+
+          |
+     [Parser Engine]
+          |
++-----------------------------+
+| Generates link              |
+| https://pingmark.me/...     |
++-----------------------------+
+          |
+     [Resolver Service]
+          |
+ Map visualization + TTL cache
+7 Evaluation
+Criterion	geo: URI	Plus Codes	what3words	Pingmark
+
+
+
+
+Human readability	✖	◐	✔	✔✔
+Open standard	✔	✔	✖	✔✔
+Real-time capability	✖	✖	✖	✔
+Requires app	✔	✔	✔	✖
+8 Conclusion and Future Work
+Pingmark v0.2 consolidates the protocol as an open, textual standard for spatial mentions. Future work includes: publishing Pingmark Protocol v1.0 (RFC Draft), extending with URI scheme pingmark://, developing SDKs for browsers, chat systems, and IoT, and establishing open governance under a neutral working group.
+References
+[1] K. Dimitrov, Pingmark: A Textual Protocol for Universal Spatial Mentions, arXiv:2510.09672, DOI: 10.48550/arXiv.2510.09672, 2025.
+[2] G. Schulz, RFC 5870: A Uniform Resource Identifier for Geographic Locations, IETF, 2010.
+[3] Google, Open Location Code (Plus Codes), 2024, https://plus.codes.
+[4] what3words Ltd., System Overview, 2023.
+[5] OpenStreetMap Foundation, API Docs, 2025.
+[6] W3C, Web Annotation Data Model, 2024.
+[7] CEUR-WS.org, Author Guidelines, 2024.

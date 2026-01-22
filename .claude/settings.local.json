@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm run:*)",
+      "Bash(node --check:*)",
+      "Bash(node -e \"import\\(''file:///D:/pingmark-platform/landing/assets/main.js''\\).catch\\(e => console.log\\(''Module check \\(expected to fail due to imports\\):'', e.message.split\\(''\\\\n''\\)[0]\\)\\)\")",
+      "Bash(npx esbuild:*)"
+    ]
+  }
+}
