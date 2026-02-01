@@ -1,4 +1,4 @@
-import {parse, toURL} from '@pingmark/sdk';
+import { parse, toURL } from '@pingmark/sdk';
 
 const content = {
 	en: {
@@ -140,6 +140,14 @@ const content = {
 let currentLang = "en";
 let demoMap = null;
 let demoMarker = null;
+let accuracyCircle = null;
+let bestPosition = null; // {lat, lon, accuracy, timestamp}
+let sampleBuffer = [];    // Buffer for statistical refinement
+let watchId = null;
+let isManuallyPlaced = false;
+
+const PRECISION_THRESHOLD = 30; // Meters for a "Hardware Lock"
+const BUFFER_SIZE = 5;         // Number of samples to average
 
 // Leaflet marker icon
 const pingIcon = L.icon({
@@ -237,51 +245,203 @@ function switchLanguage(lang) {
 function initDemoMap() {
 	if (demoMap) return;
 
-	demoMap = L.map("demo-map").setView([43.0768, 25.6315], 10);
+	const initialLat = 43.0768;
+	const initialLon = 25.6315;
+
+	demoMap = L.map("demo-map").setView([initialLat, initialLon], 10);
 	L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 		maxZoom: 19,
 	}).addTo(demoMap);
 
-	// Sofia marker (по подразбиране)
-	demoMarker = L.marker([42.6977, 23.3219], {icon: pingIcon}).addTo(demoMap);
+	// Initial marker at Veliko Tarnovo with draggable enabled
+	demoMarker = L.marker([initialLat, initialLon], {
+		icon: pingIcon,
+		draggable: true
+	}).addTo(demoMap);
+
+	const data = content[currentLang];
 	demoMarker.bindPopup(
-		'<b>Pingmark Demo</b><br>Sofia, Bulgaria<br><small>Click "View Sofia" to see full map</small>'
+		`<b>Pingmark Demo</b><br>Veliko Tarnovo, Bulgaria<br><small>${data.demo_status}</small>`
+	);
+
+	// Event listeners for manual refinement
+	demoMarker.on('dragend', (e) => {
+		isManuallyPlaced = true;
+		const { lat, lng } = e.target.getLatLng();
+		updateLocationFromManual(lat, lng);
+	});
+
+	demoMap.on('click', (e) => {
+		isManuallyPlaced = true;
+		const { lat, lng } = e.latlng;
+		demoMarker.setLatLng([lat, lng]);
+		updateLocationFromManual(lat, lng);
+	});
+
+	// Start the precision engine
+	startPrecisionEngine();
+}
+
+function updateLocationFromManual(lat, lng) {
+	// Stop auto-tracking if user manually placed
+	if (accuracyCircle) {
+		demoMap.removeLayer(accuracyCircle);
+		accuracyCircle = null;
+	}
+
+	bestPosition = {
+		lat: +lat.toFixed(6),
+		lon: +lng.toFixed(6),
+		accuracy: 0,
+		timestamp: Math.floor(Date.now() / 1000)
+	};
+
+	const url = toURL(
+		{ lat: bestPosition.lat, lon: bestPosition.lon, ts: String(bestPosition.timestamp) },
+		"https://map.pingmark.me"
+	);
+	const status = document.getElementById("status");
+	status.innerHTML = `Manual position set! <a href="${url}" target="_blank" class="text-blue-600 underline dark:text-blue-400">View on full map</a>`;
+
+	demoMarker.bindPopup(
+		`<b>Manual Position</b><br>${bestPosition.lat}, ${bestPosition.lon}`
+	).openPopup();
+}
+
+function startPrecisionEngine() {
+	if (!navigator.geolocation) return;
+
+	watchId = navigator.geolocation.watchPosition(
+		(position) => {
+			const { latitude, longitude, accuracy } = position.coords;
+			const timestamp = Math.floor(position.timestamp / 1000);
+
+			// Add to buffer
+			sampleBuffer.push({ lat: latitude, lon: longitude, acc: accuracy });
+			if (sampleBuffer.length > BUFFER_SIZE) sampleBuffer.shift();
+
+			// Statistical Cleaning
+			const refined = getRefinedCoordinates(latitude, longitude, accuracy);
+
+			if (!bestPosition || refined.accuracy <= bestPosition.accuracy) {
+				bestPosition = {
+					lat: +refined.lat.toFixed(6),
+					lon: +refined.lon.toFixed(6),
+					accuracy: refined.accuracy,
+					timestamp: timestamp
+				};
+
+				if (!isManuallyPlaced) {
+					updateDemoMap(bestPosition.lat, bestPosition.lon, bestPosition.accuracy);
+					updateStatusWithBest();
+				}
+			}
+		},
+		(error) => {
+			console.warn('Geolocation error:', error);
+			const status = document.getElementById("status");
+			status.textContent = "GPS Status: Signal lost or permission denied.";
+		},
+		{
+			enableHighAccuracy: true,
+			maximumAge: 0,
+			timeout: 30000
+		}
 	);
 }
 
-async function useMyLocation() {
-	const status = document.getElementById("status");
-	status.textContent = "Requesting location...";
+function getRefinedCoordinates(lat, lon, acc) {
+	if (sampleBuffer.length < 3) return { lat, lon, accuracy: acc };
 
-	try {
-		const position = await new Promise((resolve, reject) => {
-			navigator.geolocation.getCurrentPosition(resolve, reject, {
-				enableHighAccuracy: true,
-				timeout: 10000,
-				maximumAge: 0,
-			});
+	// Filter outliers: remove samples with accuracy > 2 * median accuracy
+	const sortedByAcc = [...sampleBuffer].sort((a, b) => a.acc - b.acc);
+	const medianAcc = sortedByAcc[Math.floor(sortedByAcc.length / 2)].acc;
+	const filtered = sampleBuffer.filter(s => s.acc <= medianAcc * 2);
+
+	if (filtered.length === 0) return { lat, lon, accuracy: acc };
+
+	const avgLat = filtered.reduce((sum, s) => sum + s.lat, 0) / filtered.length;
+	const avgLon = filtered.reduce((sum, s) => sum + s.lon, 0) / filtered.length;
+	const avgAcc = filtered.reduce((sum, s) => sum + s.acc, 0) / filtered.length;
+
+	return { lat: avgLat, lon: avgLon, accuracy: avgAcc };
+}
+
+function updateDemoMap(lat, lon, accuracy) {
+	if (!demoMap || !demoMarker) return;
+
+	const targetZoom = accuracy < PRECISION_THRESHOLD ? 18 : 15;
+	demoMap.setView([lat, lon], demoMap.getZoom() > targetZoom ? demoMap.getZoom() : targetZoom);
+
+	demoMarker.setLatLng([lat, lon]);
+
+	const lockStatus = accuracy < PRECISION_THRESHOLD
+		? "<span class='text-green-500 font-bold'>✓ GPS Hardware Lock</span>"
+		: "<span class='text-orange-500 italic'>⟳ Refining... (Wait for lock)</span>";
+
+	demoMarker.bindPopup(
+		`<b>Pingmark Precision Guard</b><br>${lat.toFixed(6)}, ${lon.toFixed(6)}<br><small>Accuracy: ±${Math.round(accuracy)}m</small><br>${lockStatus}`
+	);
+
+	// Accuracy Circle
+	if (accuracyCircle) {
+		accuracyCircle.setLatLng([lat, lon]);
+		accuracyCircle.setRadius(accuracy);
+		accuracyCircle.setStyle({
+			color: accuracy < PRECISION_THRESHOLD ? '#10b981' : '#dc2626',
+			fillColor: accuracy < PRECISION_THRESHOLD ? '#10b981' : '#dc2626'
 		});
+	} else {
+		accuracyCircle = L.circle([lat, lon], {
+			radius: accuracy,
+			color: '#dc2626',
+			fillColor: '#dc2626',
+			fillOpacity: 0.15,
+			weight: 1
+		}).addTo(demoMap);
+	}
+}
 
-		const {latitude, longitude} = position.coords;
-		const timestamp = Math.floor(Date.now() / 1000);
+function updateStatusWithBest(forcePopulate = false) {
+	if (!bestPosition) return;
+	const status = document.getElementById("status");
+	const pmInput = document.getElementById("pm-text");
+	const url = toURL(
+		{ lat: bestPosition.lat, lon: bestPosition.lon, ts: String(bestPosition.timestamp) },
+		"https://map.pingmark.me"
+	);
 
-		// Update demo map
-		if (demoMap && demoMarker) {
-			demoMap.setView([latitude, longitude], 15);
-			demoMarker.setLatLng([latitude, longitude]);
-			demoMarker.bindPopup(
-				`<b>Your Location</b><br>${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-			);
+	const isLocked = bestPosition.accuracy < PRECISION_THRESHOLD;
+	const statusMsg = isLocked
+		? `<span class="text-green-600 dark:text-green-400 font-bold">✓ Precision Locked!</span>`
+		: `<span class="text-orange-600 dark:text-orange-400 italic">Finding GPS lock... (±${Math.round(bestPosition.accuracy)}m)</span>`;
+
+	status.innerHTML = `${statusMsg} <a href="${url}" target="_blank" class="text-blue-600 underline dark:text-blue-400 ml-2">Open Map</a>`;
+
+	// Auto-populate the protocol string in the demo box
+	// We populate if it's locked OR if the user explicitly clicked the button (forcePopulate)
+	if (pmInput && (isLocked || forcePopulate)) {
+		if (!pmInput.value || pmInput.value.includes("!@") || pmInput.value === "") {
+			pmInput.value = `!@ ${bestPosition.lat},${bestPosition.lon}`;
 		}
+	}
+}
 
-		// Generate link to map viewer (референтният резолвър е статичен)
-		const url = toURL(
-			{lat: +latitude.toFixed(6), lon: +longitude.toFixed(6), ts: String(timestamp)},
-			"https://map.pingmark.me"
-		);
-		status.innerHTML = `Location found! <a href="${url}" target="_blank" class="text-blue-600 underline">View on full map</a>`;
-	} catch (error) {
-		status.textContent = "Location permission denied or unavailable.";
+async function useMyLocation(isAuto = false) {
+	if (bestPosition && !isAuto) {
+		// If we already have a refined position, show it and FORCE populate the input
+		updateDemoMap(bestPosition.lat, bestPosition.lon, bestPosition.accuracy);
+		updateStatusWithBest(true); // forcePopulate = true
+		demoMarker.openPopup();
+		return;
+	}
+
+	const status = document.getElementById("status");
+	const pmInput = document.getElementById("pm-text");
+
+	if (!isAuto) {
+		status.textContent = "Seeking precision lock...";
+		if (pmInput) pmInput.value = "Waiting for GPS...";
 	}
 }
 
@@ -337,6 +497,7 @@ function initDarkMode() {
 
 	if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
 		document.documentElement.setAttribute('data-theme', 'dark');
+		document.documentElement.classList.add('dark');
 		toggle.setAttribute('aria-pressed', 'true');
 	}
 
@@ -344,10 +505,12 @@ function initDarkMode() {
 		const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 		if (isDark) {
 			document.documentElement.removeAttribute('data-theme');
+			document.documentElement.classList.remove('dark');
 			localStorage.setItem('theme', 'light');
 			toggle.setAttribute('aria-pressed', 'false');
 		} else {
 			document.documentElement.setAttribute('data-theme', 'dark');
+			document.documentElement.classList.add('dark');
 			localStorage.setItem('theme', 'dark');
 			toggle.setAttribute('aria-pressed', 'true');
 		}
@@ -358,8 +521,10 @@ function initDarkMode() {
 		if (!localStorage.getItem('theme')) {
 			if (e.matches) {
 				document.documentElement.setAttribute('data-theme', 'dark');
+				document.documentElement.classList.add('dark');
 			} else {
 				document.documentElement.removeAttribute('data-theme');
+				document.documentElement.classList.remove('dark');
 			}
 		}
 	});

@@ -24,15 +24,6 @@ html[data-theme="dark"] body {
   color-scheme: dark;
 }
 
-/* Hero section gradient */
-.hero-section {
-  background: linear-gradient(135deg, rgba(254, 242, 242, 0.8) 0%, rgba(255, 247, 237, 0.8) 50%, rgba(240, 253, 244, 0.8) 100%);
-}
-
-[data-theme="dark"] .hero-section {
-  background: linear-gradient(135deg, rgba(31, 31, 31, 0.8) 0%, rgba(23, 23, 23, 0.8) 50%, rgba(15, 23, 42, 0.8) 100%);
-}
-
 /* Glassmorphism cards */
 .glass-card {
   background: rgba(255, 255, 255, 0.8);
@@ -44,9 +35,9 @@ html[data-theme="dark"] body {
 }
 
 [data-theme="dark"] .glass-card {
-  background: rgba(30, 30, 30, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  background: rgba(38, 38, 38, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
 }
 
 /* Code blocks */
@@ -73,14 +64,24 @@ html[data-theme="dark"] body {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.9;
     transform: scale(1.02);
   }
+}
+
+/* Dark mode logo visibility improvement */
+[data-theme="dark"] .pingmark-logo img,
+[data-theme="dark"] #demo-title img {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.2));
+  opacity: 0.95;
 }
 
 /* Hover lift effect */
@@ -99,18 +100,24 @@ html[data-theme="dark"] body {
 
 /* Arrow bounce animations */
 @keyframes bounce-x {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateX(0);
   }
+
   50% {
     transform: translateX(8px);
   }
 }
 
 @keyframes bounce-y {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(8px);
   }
@@ -166,6 +173,7 @@ table {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -214,9 +222,8 @@ table {
 /* Form input focus states */
 input:focus {
   outline: none;
-  ring: 2px;
-  ring-color: #14b8a6;
   border-color: #14b8a6;
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.4);
 }
 
 [data-theme="dark"] input:focus {
