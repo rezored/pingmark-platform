@@ -15,7 +15,8 @@ import { toURL, format, type Pingmark } from '@pingmark/sdk';
 // ===== Constants =====
 const TRIGGER = '!@';
 const DEBOUNCE_MS = 700;
-const GEO_TIMEOUT_MS = 10000;
+const GEO_TIMEOUT_MS = 20000;
+const GEO_MAX_AGE_MS = 60000;
 const COORD_PRECISION = 6;
 const PM_GLOBAL = '__pm_type2link_installed__';
 const PM_UPGRADED_ATTR = 'data-pm-upgraded';
@@ -110,11 +111,27 @@ function getPosition(): Promise<Coords> {
 			reject(new Error('Geolocation unavailable'));
 			return;
 		}
-		navigator.geolocation.getCurrentPosition(
-			(pos) => resolve(pos.coords),
-			(err) => reject(err),
-			{ enableHighAccuracy: true, maximumAge: 0, timeout: GEO_TIMEOUT_MS }
-		);
+
+		const options: PositionOptions = {
+			enableHighAccuracy: true,
+			maximumAge: GEO_MAX_AGE_MS,
+			timeout: GEO_TIMEOUT_MS
+		};
+
+		const success = (pos: GeolocationPosition): void => resolve(pos.coords);
+		const error = (err: GeolocationPositionError): void => {
+			// If high accuracy failed/timed out, try one more time with low accuracy
+			if (options.enableHighAccuracy) {
+				console.warn('[Pingmark] High accuracy failed, retrying with low accuracy...', err);
+				options.enableHighAccuracy = false;
+				options.timeout = GEO_TIMEOUT_MS * 2; // Extra time for fallback
+				navigator.geolocation.getCurrentPosition(success, reject, options);
+			} else {
+				reject(err);
+			}
+		};
+
+		navigator.geolocation.getCurrentPosition(success, error, options);
 	});
 }
 
@@ -241,7 +258,7 @@ async function handleTrigger(el: Element): Promise<void> {
 		}
 
 		wmSet(lastExpansion, el, { time: Date.now() });
-	} catch {
+	} catch (err) {
 		// Silent fail - geolocation may be denied
 	} finally {
 		wmSet(inflight, el, false);
