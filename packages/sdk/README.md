@@ -43,10 +43,12 @@ formatToken(p, 'area'); // '!@~42.7,23.32'
 
 | Level | Radius | Token |
 |---|---|---|
-| `exact` | ~1 m | `!@` |
-| `street` | ~100 m | |
+| `exact` | ~1 m | `!@` (4+ decimals) |
+| `street` | ~100 m | `!@` (3 decimals) |
 | `area` | ~1 km | `!@~` |
 | `city` | ~10 km | `!@~~` |
+
+A token without `~` is never read as more precise than its digits: `!@43.123,25.654` is `street`, and `formatToken` keeps trailing zeros (`!@43.120,25.654`) so the level survives a round trip.
 
 ## Geometry and links
 

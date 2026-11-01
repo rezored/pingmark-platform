@@ -32,6 +32,19 @@ export function isPrecision(v: unknown): v is Precision {
 	return typeof v === 'string' && (PRECISIONS as readonly string[]).includes(v);
 }
 
+/** The less precise of two levels: disclosure can only be narrowed, never widened. */
+export function coarserPrecision(a: Precision, b: Precision): Precision {
+	return PRECISIONS.indexOf(a) >= PRECISIONS.indexOf(b) ? a : b;
+}
+
+/**
+ * The finest level a coordinate written with this many decimals can support.
+ * Four decimals (~10 m) still count as exact, so hand-typed points are not downgraded.
+ */
+export function precisionForDecimals(decimals: number): Precision {
+	return decimals >= 4 ? 'exact' : decimals === 3 ? 'street' : decimals === 2 ? 'area' : 'city';
+}
+
 export interface LatLon {
 	lat: number;
 	lon: number;

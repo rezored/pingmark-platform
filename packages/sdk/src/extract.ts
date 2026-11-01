@@ -1,7 +1,7 @@
 // Find every spatial mention in free text: inline tokens, resolver URLs,
 // geo: URIs (RFC 5870), and bare "!@" requests for the current location.
 
-import { isValidLatLon, type Precision } from './geo';
+import { isValidLatLon, PRECISION_DECIMALS, precisionForDecimals, type Precision } from './geo';
 
 export type MentionSource = 'token' | 'url' | 'geo-uri';
 
@@ -27,7 +27,9 @@ export interface HereMention {
 
 export type Mention = PointMention | HereMention;
 
-const NUM = '[+-]?\\d{1,3}(?:\\.\\d+)?';
+// The lookahead stops backtracking into a partial number: "23.45x" must not
+// be read as 23. A trailing sentence period ("…23.4.") is still allowed.
+const NUM = '[+-]?\\d{1,3}(?:\\.\\d+)?(?!\\.?\\d)';
 // Token must start the text or follow whitespace/opening punctuation.
 const BOUNDARY = '(?<=^|[\\s([{"\'«„“‘])';
 
@@ -37,6 +39,24 @@ const GEO_RE = new RegExp(`geo:(${NUM}),(${NUM})(?:,[+-]?\\d+(?:\\.\\d+)?)?(?:;[
 
 function tildePrecision(tildes: string): Precision {
 	return tildes.length === 2 ? 'city' : tildes.length === 1 ? 'area' : 'exact';
+}
+
+const decimals = (s: string): number => s.split('.')[1]?.length ?? 0;
+
+/**
+ * A token without ~ is never more precise than its digits allow, so
+ * "!@43.123,25.654" (street level has no ~ marker) reads back as 'street'.
+ * With ~ the marker decides: formatting may drop trailing zeros ("42.7").
+ */
+function tokenPrecision(tildes: string, latS: string, lonS: string): Precision {
+	if (tildes) return tildePrecision(tildes);
+	return precisionForDecimals(Math.min(decimals(latS), decimals(lonS)));
+}
+
+/** Keep at least `min` decimals, so the written digits still carry the precision. */
+function withDecimals(v: number, min: number): string {
+	const s = String(v);
+	return decimals(s) >= min || s.includes('e') ? s : v.toFixed(min);
 }
 
 function safeDecode(s: string): string {
@@ -52,11 +72,11 @@ export function extractMentions(text: string): Mention[] {
 
 	for (const m of text.matchAll(TOKEN_RE)) {
 		const [raw, tildes, latS, lonS, ts] = m;
-		const precision = tildePrecision(tildes);
 		if (latS === undefined) {
-			out.push({ kind: 'here', precision, raw, index: m.index! });
+			out.push({ kind: 'here', precision: tildePrecision(tildes), raw, index: m.index! });
 			continue;
 		}
+		const precision = tokenPrecision(tildes, latS, lonS);
 		const lat = Number(latS);
 		const lon = Number(lonS);
 		if (!isValidLatLon(lat, lon)) continue;
@@ -85,6 +105,8 @@ export function extractMentions(text: string): Mention[] {
 /** Canonical inline token for a point at a given disclosure level. */
 export function formatToken(p: { lat: number; lon: number; ts?: string }, precision: Precision = 'exact'): string {
 	const tildes = precision === 'city' ? '~~' : precision === 'area' ? '~' : '';
-	const base = `!@${tildes}${p.lat},${p.lon}`;
+	// Without ~ the reader infers precision from the digits, so keep them.
+	const fmt = (v: number): string => (tildes ? String(v) : withDecimals(v, PRECISION_DECIMALS[precision]));
+	const base = `!@${tildes}${fmt(p.lat)},${fmt(p.lon)}`;
 	return p.ts ? `${base}/${encodeURIComponent(p.ts)}` : base;
 }

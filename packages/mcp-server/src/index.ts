@@ -13,6 +13,7 @@ import { z } from 'zod';
 import {
 	bearingDegrees,
 	coarsen,
+	coarserPrecision,
 	compassDirection,
 	distanceMeters,
 	extractMentions,
@@ -127,8 +128,10 @@ server.registerTool(
 	},
 	async ({ reason, precision }) => {
 		const fixed = configuredLocation();
-		const result = fixed
-			? ({ status: 'shared', ...coarsen(fixed, precision), precision } as const)
+		// A configured location coarser than requested must not be reported as finer.
+		const fixedPrecision = fixed && coarserPrecision(fixed.precision, precision);
+		const result = fixed && fixedPrecision
+			? ({ status: 'shared', ...coarsen(fixed, fixedPrecision), precision: fixedPrecision } as const)
 			: await requestLocationConsent({ reason, suggestedPrecision: precision, timeoutMs: CONSENT_TIMEOUT_MS });
 
 		switch (result.status) {

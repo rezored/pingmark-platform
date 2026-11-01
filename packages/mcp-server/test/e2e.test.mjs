@@ -66,6 +66,27 @@ test('parse_pingmarks finds tokens, links, geo URIs and bare !@, ignores passwor
 	await client.close();
 });
 
+test('parse_pingmarks: precision follows the digits, malformed tokens are not truncated', async () => {
+	const { client } = await connect();
+	const { data } = await call(client, 'parse_pingmarks', {
+		text: 'улица !@43.123,25.654 точно !@42.6977,23.3219. грешно !@42.1,23.45x'
+	});
+	assert.deepEqual(
+		data.mentions.map((m) => `${m.raw}:${m.precision}`),
+		['!@43.123,25.654:street', '!@42.6977,23.3219:exact']
+	);
+	await client.close();
+});
+
+test('format_pingmark street token round-trips as street', async () => {
+	const { client } = await connect();
+	const f = await call(client, 'format_pingmark', { lat: 43.12, lon: 25.65432, precision: 'street' });
+	assert.equal(f.data.token, '!@43.120,25.654');
+	const { data } = await call(client, 'parse_pingmarks', { text: f.data.token });
+	assert.equal(data.mentions[0].precision, 'street');
+	await client.close();
+});
+
 test('distance and format_pingmark', async () => {
 	const { client } = await connect();
 	const d = await call(client, 'distance', { from: '!@42.6977,23.3219', to: 'geo:43.0842,25.655' });
@@ -90,6 +111,15 @@ test('request_location uses PINGMARK_LOCATION and coarsens it', async () => {
 	assert.equal(data.status, 'shared');
 	assert.equal(data.token, '!@~~42.7,23.3');
 	assert.equal(data.uncertainty_m, 10000);
+	await client.close();
+});
+
+test('request_location never reports a coarse PINGMARK_LOCATION as finer', async () => {
+	const { client } = await connect({ PINGMARK_LOCATION: '!@~42.7,23.32' });
+	const { data } = await call(client, 'request_location', { reason: 'Directions', precision: 'exact' });
+	assert.equal(data.precision, 'area');
+	assert.equal(data.token, '!@~42.7,23.32');
+	assert.equal(data.uncertainty_m, 1000);
 	await client.close();
 });
 
