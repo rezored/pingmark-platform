@@ -1,26 +1,35 @@
 # Pingmark Type-to-Link (Chrome, MV3)
 
-**Goal**: When you type `!@`, automatically insert your current coordinates **and** an ISO-8601 UTC timestamp as a **link**.
+Type `!@`, confirm, and the token becomes a link with your current coordinates and an ISO-8601 UTC timestamp, e.g.
+`https://map.pingmark.me/42.6977/23.3219/2025-10-14T18%3A00%3A00.000Z`.
 
-- In `<input>`/`<textarea>`: `!@` expands to a full URL (plain text), e.g. `https://pingmark.me/42.697700/23.321900/2025-10-14T18:00:00.000Z`
-- In rich text (`contentEditable`): `!@` becomes a clickable `<a>` with the same URL.
+## How it works
 
-This follows your PPS design: `!@` is the trigger; the client generates the lat/lon and optional timestamp locally. The resolver URL format is `https://pingmark.me/<latitude>/<longitude>[/<timestamp>]`.
+1. Type `!@` as a standalone token: at the start of the text, after a space, or after an opening bracket/quote.
+2. A small prompt appears: **📍 Share your location here?** Press **Tab** or click **Share** to confirm. Press **Esc**, or just keep typing, to dismiss.
+3. Only after you confirm does the extension read the location and replace `!@` with the link.
 
-## Install (Developer Mode)
-1. Unzip and go to `chrome://extensions`.
-2. Enable **Developer mode** and click **Load unpacked**.
-3. Select the folder.
+## Privacy rules
 
-Geolocation prompts will come from the page origin the first time `!@` is expanded.
+- **Never in sensitive fields.** The extension works only in `<textarea>`, `<input type="text|search">` and rich-text editors. It skips password, email, number, URL and phone fields, and fields with `autocomplete` set to password, one-time-code or credit-card values.
+- **No accidental triggers.** `Pass!@#`, `hey!@john` and `Arrived!@` do nothing: the token must stand alone, and typing anything after it cancels the prompt.
+- **No permission leaks to websites.** Location is read by the extension itself, in an offscreen document under the extension's `geolocation` permission. The website you type on never gets location access.
+- **Explicit consent every time.** Nothing is read until you confirm.
 
-## Notes
-- Rounds lat/lon to 6 decimals.
-- Uses `navigator.geolocation.getCurrentPosition` with a 10s timeout.
-- Minimal UI (no popups/options). If geolocation fails, `!@` stays unchanged.
-- Works in most editors and inputs; for very custom editors, behavior depends on how they handle text.
+## Build and install (Developer Mode)
 
-## Roadmap
-- Options (toggle timestamp, choose ISO vs epoch).
-- One-shot permission/status indicator.
-- Batch replace of `!@` in static pages.
+```bash
+npm install          # from the repo root (workspaces)
+npm run build:extension
+```
+
+1. Open `chrome://extensions` and enable **Developer mode**.
+2. Click **Load unpacked** and select `extensions/chrome`.
+
+Requires Chrome 116+. On install, Chrome shows the "Detect your physical location" permission.
+
+## Files
+
+- `src/content.ts`: trigger detection, confirmation prompt, replacement, link preview cards
+- `src/background.ts`: service worker that brokers location requests
+- `src/offscreen.ts` + `offscreen.html`: the only place `navigator.geolocation` is called

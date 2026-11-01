@@ -1,0 +1,62 @@
+{
+	"name": "@pingmark/mcp-server",
+	"version": "0.1.0",
+	"description": "MCP server that gives AI assistants consent-first location through the Pingmark !@ syntax: nearby places, open-now, distances.",
+	"keywords": [
+		"mcp",
+		"model-context-protocol",
+		"mcp-server",
+		"claude",
+		"location",
+		"geolocation",
+		"privacy",
+		"openstreetmap",
+		"pingmark"
+	],
+	"homepage": "https://pingmark.me",
+	"bugs": {
+		"url": "https://github.com/rezored/pingmark-platform/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/rezored/pingmark-platform.git",
+		"directory": "packages/mcp-server"
+	},
+	"license": "MIT",
+	"author": "Kalin Dimitrov",
+	"type": "module",
+	"mcpName": "io.github.rezored/pingmark",
+	"bin": {
+		"pingmark-mcp": "dist/index.js"
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"build": "tsup src/index.ts --format esm --clean --no-splitting",
+		"typecheck": "tsc --noEmit",
+		"test": "node --test test/hours.test.mjs test/e2e.test.mjs",
+		"prepublishOnly": "npm run typecheck && npm run build && npm test"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.32.2",
+		"@photostructure/tz-lookup": "^11.7.0",
+		"opening_hours": "^3.15.0",
+		"zod": "^4.0.0"
+	},
+	"devDependencies": {
+		"@pingmark/sdk": "*",
+		"@types/node": "^22.0.0",
+		"tsup": "^8.5.0",
+		"typescript": "^5.9.3",
+		"esbuild": "^0.20.0"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}

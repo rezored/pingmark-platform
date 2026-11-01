@@ -4,10 +4,12 @@
 	"description": "Pingmark Platform - Three independent applications for pingmark.me, map.pingmark.me, and api.pingmark.me",
 	"private": true,
 	"scripts": {
-		"test": "echo 'No tests configured for this simplified structure'",
-		"clean": "echo 'Project cleaned - ready for deployment'",
-		"build": "npm run -w @pingmark/sdk build && npm run -w @pingmark/extension-chrome build && npm run -w map build && npm run -w landing build",
-		"build:extension": "npm run -w @pingmark/extension-chrome build"
+		"build": "npm run build:sdk && npm run -w @pingmark/mcp-server build && npm run -w @pingmark/extension-chrome build",
+		"build:sdk": "npm run -w @pingmark/sdk build",
+		"build:mcp": "npm run build:sdk && npm run -w @pingmark/mcp-server build",
+		"build:extension": "npm run build:sdk && npm run -w @pingmark/extension-chrome build",
+		"test": "npm test -w @pingmark/mcp-server",
+		"typecheck": "npm run -w @pingmark/mcp-server typecheck"
 	},
 	"keywords": [
 		"pingmark",
@@ -20,7 +22,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/yourusername/pingmark-platform.git"
+		"url": "https://github.com/rezored/pingmark-platform.git"
 	},
 	"workspaces": [
 		"packages/*",
