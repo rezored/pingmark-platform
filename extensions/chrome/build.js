@@ -3,11 +3,15 @@ import * as esbuild from 'esbuild';
 const isWatch = process.argv.includes('--watch');
 
 const buildOptions = {
-	entryPoints: ['src/content.ts'],
+	entryPoints: {
+		content: 'src/content.ts',
+		background: 'src/background.ts',
+		offscreen: 'src/offscreen.ts'
+	},
 	bundle: true,
-	outfile: 'dist/content.js',
+	outdir: 'dist',
 	format: 'iife',
-	target: ['chrome100'],
+	target: ['chrome116'],
 	minify: !isWatch,
 	sourcemap: isWatch ? 'inline' : false,
 };
@@ -18,5 +22,5 @@ if (isWatch) {
 	console.log('Watching for changes...');
 } else {
 	await esbuild.build(buildOptions);
-	console.log('Build complete: dist/content.js');
+	console.log('Build complete: dist/content.js, dist/background.js, dist/offscreen.js');
 }

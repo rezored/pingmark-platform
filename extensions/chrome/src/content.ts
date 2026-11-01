@@ -1,25 +1,31 @@
 /**
  * Pingmark Type-to-Link Extension
  *
- * Behavior: When the user types the trigger "!@", the extension grabs current
- * geolocation and replaces the token with a pingmark link that includes
- * latitude, longitude, and an ISO-8601 UTC timestamp.
+ * Behavior: when the user types the trigger "!@" as a standalone token, a small
+ * prompt asks whether to share the current location. Only after an explicit
+ * confirmation (click or Tab) is the location read and the token replaced with
+ * a pingmark link (latitude, longitude, ISO-8601 UTC timestamp).
  *
- * - In <input>/<textarea>: replaces "!@" with the canonical URL.
- * - In contentEditable: inserts an <a> element at the caret.
- * - Uses page-origin geolocation permission.
+ * Privacy rules enforced here:
+ * - Never active in password or other non-free-text fields.
+ * - The trigger must stand alone (start of text or after whitespace/opening
+ *   punctuation) and stays pending only while nothing is typed after it, so
+ *   strings like "Pass!@#" or "hey!@john" never fire.
+ * - Location is read by the extension (offscreen document), not the page, so
+ *   the website never receives geolocation permission.
  */
 
 import { toURL, format, type Pingmark } from '@pingmark/sdk';
+import { MSG_GET_LOCATION, type LocationResponse } from './messages';
 
 // ===== Constants =====
 const TRIGGER = '!@';
-const DEBOUNCE_MS = 700;
-const GEO_TIMEOUT_MS = 20000;
-const GEO_MAX_AGE_MS = 60000;
+// "!@" at the caret, preceded by start of text, whitespace or opening punctuation.
+const TRIGGER_AT_CARET_RE = /(?:^|[\s([{"'«„“‘])!@$/u;
 const COORD_PRECISION = 6;
 const PM_GLOBAL = '__pm_type2link_installed__';
 const PM_UPGRADED_ATTR = 'data-pm-upgraded';
+const ERROR_DISPLAY_MS = 2500;
 
 // Regex to match pingmark.me URLs and extract lat/lon/timestamp
 const PM_LINK_RE = /^https?:\/\/(?:map\.)?pingmark\.me\/(-?\d+(?:\.\d+)?)\/(-?\d+(?:\.\d+)?)(?:\/([^/?#]+))?$/i;
@@ -40,27 +46,6 @@ if (window[PM_GLOBAL]) {
 	throw new Error('Pingmark Type-to-Link already installed');
 }
 window[PM_GLOBAL] = true;
-
-// ===== Runtime State =====
-const inflight = new WeakMap<Element, boolean>();
-const lastExpansion = new WeakMap<Element, { time: number }>();
-
-// Safe WeakMap helpers (defensive against pages that tamper with globals)
-function wmGet<K extends object, V>(wm: WeakMap<K, V>, key: K): V | undefined {
-	try {
-		return wm?.get?.(key);
-	} catch {
-		return undefined;
-	}
-}
-
-function wmSet<K extends object, V>(wm: WeakMap<K, V>, key: K, val: V): void {
-	try {
-		wm?.set?.(key, val);
-	} catch {
-		// Ignore errors
-	}
-}
 
 // ===== Utilities =====
 const round = (n: number): string => n.toFixed(COORD_PRECISION);
@@ -99,199 +84,309 @@ function formatPingmark(lat: string, lon: string, ts?: string): string {
 	return format(pingmark);
 }
 
-// ===== Geolocation =====
-interface Coords {
-	latitude: number;
-	longitude: number;
+// ===== Geolocation (via extension, never via the page) =====
+async function requestLocation(): Promise<{ latitude: number; longitude: number }> {
+	const res = await chrome.runtime.sendMessage<LocationResponse>({ type: MSG_GET_LOCATION });
+	if (!res || !res.ok) throw new Error(res?.error || 'Location unavailable');
+	return { latitude: res.latitude, longitude: res.longitude };
 }
 
-function getPosition(): Promise<Coords> {
-	return new Promise((resolve, reject) => {
-		if (!('geolocation' in navigator)) {
-			reject(new Error('Geolocation unavailable'));
-			return;
-		}
+// ===== Field eligibility =====
+type TextField = HTMLInputElement | HTMLTextAreaElement;
 
-		const options: PositionOptions = {
-			enableHighAccuracy: true,
-			maximumAge: GEO_MAX_AGE_MS,
-			timeout: GEO_TIMEOUT_MS
-		};
+// Only free-text fields. Password, email, number, url, tel etc. are excluded:
+// a location must never end up in a credential or a structured value.
+const ALLOWED_INPUT_TYPES = new Set(['text', 'search']);
 
-		const success = (pos: GeolocationPosition): void => resolve(pos.coords);
-		const error = (err: GeolocationPositionError): void => {
-			// If high accuracy failed/timed out, try one more time with low accuracy
-			if (options.enableHighAccuracy) {
-				console.warn('[Pingmark] High accuracy failed, retrying with low accuracy...', err);
-				options.enableHighAccuracy = false;
-				options.timeout = GEO_TIMEOUT_MS * 2; // Extra time for fallback
-				navigator.geolocation.getCurrentPosition(success, reject, options);
-			} else {
-				reject(err);
-			}
-		};
-
-		navigator.geolocation.getCurrentPosition(success, error, options);
-	});
-}
-
-// ===== DOM Helpers =====
-function isEditable(el: Element | null): el is HTMLInputElement | HTMLTextAreaElement | HTMLElement {
-	if (!el) return false;
+function isTextField(el: Element): el is TextField {
 	const tag = el.tagName?.toUpperCase();
-	if (!tag) return false;
-
 	if (tag === 'TEXTAREA') return true;
 	if (tag === 'INPUT') {
-		const input = el as HTMLInputElement;
-		const type = (input.type || 'text').toLowerCase();
-		return ['text', 'search', 'url', 'email', 'tel', 'number', 'password'].includes(type);
+		const type = ((el as HTMLInputElement).type || 'text').toLowerCase();
+		return ALLOWED_INPUT_TYPES.has(type);
 	}
-	if ((el as HTMLElement).isContentEditable) return true;
 	return false;
 }
 
-function replaceInInput(el: HTMLInputElement | HTMLTextAreaElement, start: number, end: number, text: string): void {
-	const val = el.value;
-	const before = val.slice(0, start);
-	const after = val.slice(end);
-	const newVal = before + text + after;
-	const newCaret = before.length + text.length;
-	el.value = newVal;
-	el.dispatchEvent(new InputEvent('input', { bubbles: true }));
-	el.setSelectionRange(newCaret, newCaret);
+function isSensitiveField(el: Element): boolean {
+	const ac = (el.getAttribute('autocomplete') || '').toLowerCase();
+	return /password|one-time-code|cc-|webauthn/.test(ac);
 }
 
-interface TriggerInfo {
-	start: number;
-	end: number;
-	caret: number;
+function isEligible(el: Element | null): el is TextField | HTMLElement {
+	if (!el || isSensitiveField(el)) return false;
+	if (isTextField(el)) return !el.readOnly && !el.disabled;
+	return (el as HTMLElement).isContentEditable === true;
 }
 
-function findTriggerInInput(el: HTMLInputElement | HTMLTextAreaElement): TriggerInfo | null {
-	const caret = el.selectionStart ?? 0;
-	const upto = el.value.slice(0, caret);
-	const idx = upto.lastIndexOf(TRIGGER);
-	if (idx >= 0) {
-		return { start: idx, end: idx + TRIGGER.length, caret };
+// ===== Pending trigger tracking =====
+// Where the "!@" token sits, so we can verify it is still there after the
+// async location lookup instead of inserting at an arbitrary caret position.
+type Pending =
+	| { kind: 'field'; el: TextField; start: number }
+	| { kind: 'editable'; el: HTMLElement; node: Text; start: number };
+
+function detectTrigger(el: Element): Pending | null {
+	if (isTextField(el)) {
+		const caret = el.selectionStart;
+		if (caret == null || caret !== el.selectionEnd) return null;
+		if (!TRIGGER_AT_CARET_RE.test(el.value.slice(0, caret))) return null;
+		return { kind: 'field', el, start: caret - TRIGGER.length };
 	}
-	return null;
+
+	const sel = window.getSelection();
+	if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return null;
+	const range = sel.getRangeAt(0);
+	const node = range.startContainer;
+	if (node.nodeType !== Node.TEXT_NODE) return null;
+	const before = (node.nodeValue || '').slice(0, range.startOffset);
+	if (!TRIGGER_AT_CARET_RE.test(before)) return null;
+	return { kind: 'editable', el: el as HTMLElement, node: node as Text, start: range.startOffset - TRIGGER.length };
 }
 
-function insertLinkInContentEditable(url: string): boolean {
-	const sel = window.getSelection();
-	if (!sel || sel.rangeCount === 0) return false;
-	const range = sel.getRangeAt(0);
+function triggerStillPresent(p: Pending): boolean {
+	if (!p.el.isConnected) return false;
+	if (p.kind === 'field') return p.el.value.substr(p.start, TRIGGER.length) === TRIGGER;
+	return p.node.isConnected && (p.node.nodeValue || '').substr(p.start, TRIGGER.length) === TRIGGER;
+}
 
-	const node = range.startContainer;
-	const offset = range.startOffset;
-
-	if (node && node.nodeType === Node.TEXT_NODE) {
-		const text = node.nodeValue || '';
-		const before = text.slice(0, offset);
-		const idx = before.lastIndexOf(TRIGGER);
-
-		if (idx >= 0) {
-			const after = text.slice(offset);
-			const newBefore = before.slice(0, idx);
-			const parent = node.parentNode;
-			if (!parent) return false;
-
-			const frag = document.createDocumentFragment();
-			if (newBefore) frag.append(new Text(newBefore));
-
-			const a = document.createElement('a');
-			a.href = url;
-			a.textContent = url;
-			a.target = '_blank';
-			a.rel = 'noopener noreferrer';
-			frag.append(a);
-
-			if (after) frag.append(new Text(after));
-
-			parent.replaceChild(frag, node);
-
+function triggerRect(p: Pending): DOMRect {
+	if (p.kind === 'editable') {
+		try {
 			const r = document.createRange();
-			r.setStartAfter(a);
-			r.collapse(true);
-			sel.removeAllRanges();
-			sel.addRange(r);
-			return true;
+			r.setStart(p.node, p.start);
+			r.setEnd(p.node, p.start + TRIGGER.length);
+			const rect = r.getBoundingClientRect();
+			if (rect.width || rect.height) return rect;
+		} catch {
+			// fall through to element rect
 		}
 	}
+	return p.el.getBoundingClientRect();
+}
 
-	// Fallback: insert link at caret
-	const a = document.createElement('a');
-	a.href = url;
-	a.textContent = url;
-	a.target = '_blank';
-	a.rel = 'noopener noreferrer';
-	range.deleteContents();
-	range.insertNode(a);
-	range.setStartAfter(a);
-	range.collapse(true);
+// ===== Replacement =====
+// Prefer execCommand('insertText'): it goes through the editor's normal input
+// pipeline (React/Slate/Draft state, undo stack). Fall back to direct DOM edits.
+function replaceTrigger(p: Pending, url: string): boolean {
+	if (!triggerStillPresent(p)) return false;
+	const end = p.start + TRIGGER.length;
+
+	if (p.kind === 'field') {
+		const el = p.el;
+		el.focus();
+		el.setSelectionRange(p.start, end);
+		let ok = false;
+		try {
+			ok = document.execCommand('insertText', false, url);
+		} catch {
+			ok = false;
+		}
+		if (!ok || el.value.substr(p.start, url.length) !== url) {
+			el.value = el.value.slice(0, p.start) + url + el.value.slice(end);
+			el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: url }));
+		}
+		const caret = p.start + url.length;
+		el.setSelectionRange(caret, caret);
+		return true;
+	}
+
+	const sel = window.getSelection();
+	if (!sel) return false;
+	p.el.focus();
+	const range = document.createRange();
+	range.setStart(p.node, p.start);
+	range.setEnd(p.node, end);
 	sel.removeAllRanges();
 	sel.addRange(range);
+
+	let ok = false;
+	try {
+		ok = document.execCommand('insertText', false, url);
+	} catch {
+		ok = false;
+	}
+	if (!ok) {
+		const a = document.createElement('a');
+		a.href = url;
+		a.textContent = url;
+		a.target = '_blank';
+		a.rel = 'noopener noreferrer';
+		range.deleteContents();
+		range.insertNode(a);
+		const after = document.createRange();
+		after.setStartAfter(a);
+		after.collapse(true);
+		sel.removeAllRanges();
+		sel.addRange(after);
+	}
 	return true;
 }
 
-// ===== Trigger Handler =====
-async function handleTrigger(el: Element): Promise<void> {
-	if (!el) return;
-	if (wmGet(inflight, el)) return;
-	wmSet(inflight, el, true);
+// ===== Confirmation prompt =====
+const PROMPT_STYLES = `
+	:host{all:initial}
+	.box{position:fixed; z-index:2147483647; display:inline-flex; align-items:center; gap:8px;
+		font:500 13px/1.3 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:#0b1220;
+		background:#fff; border:1px solid rgba(0,0,0,.12); border-radius:10px; padding:6px 8px;
+		box-shadow:0 6px 18px rgba(30,80,160,.18)}
+	.msg{white-space:nowrap}
+	.msg.err{color:#b42318}
+	button{appearance:none; font:inherit; border-radius:7px; padding:4px 10px; cursor:pointer;
+		border:1px solid #007aff; background:#007aff; color:#fff}
+	button.ghost{background:#fff; color:#0b1220; border-color:rgba(0,0,0,.15)}
+	button:disabled{opacity:.6; cursor:default}
+	kbd{font:11px ui-monospace,monospace; opacity:.6}
+	@media (prefers-color-scheme: dark){
+		.box{background:#1c2230; color:#e8edf7; border-color:rgba(255,255,255,.14)}
+		button.ghost{background:#1c2230; color:#e8edf7; border-color:rgba(255,255,255,.2)}
+	}
+`;
+
+let pending: Pending | null = null;
+let busy = false;
+let promptHost: HTMLElement | null = null;
+let promptParts: { box: HTMLElement; msg: HTMLElement; share: HTMLButtonElement; cancel: HTMLButtonElement } | null = null;
+let errorTimer: number | undefined;
+
+function ensurePrompt(): NonNullable<typeof promptParts> {
+	if (promptParts && promptHost?.isConnected) return promptParts;
+
+	promptHost = document.createElement('span');
+	promptHost.className = 'pingmark-prompt-host';
+	const shadow = promptHost.attachShadow({ mode: 'closed' });
+	const style = document.createElement('style');
+	style.textContent = PROMPT_STYLES;
+
+	const box = document.createElement('div');
+	box.className = 'box';
+	box.setAttribute('role', 'dialog');
+	box.setAttribute('aria-label', 'Share location with Pingmark');
+
+	const msg = document.createElement('span');
+	msg.className = 'msg';
+
+	const share = document.createElement('button');
+	share.type = 'button';
+	share.textContent = 'Share';
+	const tabHint = document.createElement('kbd');
+	tabHint.textContent = ' Tab';
+	share.appendChild(tabHint);
+
+	const cancel = document.createElement('button');
+	cancel.type = 'button';
+	cancel.className = 'ghost';
+	cancel.textContent = 'Esc';
+
+	// Keep focus and caret in the user's field when clicking the prompt.
+	for (const b of [share, cancel]) b.addEventListener('mousedown', (e) => e.preventDefault());
+	share.addEventListener('click', () => void confirmShare());
+	cancel.addEventListener('click', () => hidePrompt());
+
+	box.append(msg, share, cancel);
+	shadow.append(style, box);
+	document.documentElement.appendChild(promptHost);
+
+	promptParts = { box, msg, share, cancel };
+	return promptParts;
+}
+
+function positionPrompt(p: Pending): void {
+	const { box } = ensurePrompt();
+	const rect = triggerRect(p);
+	const top = rect.bottom + 6 + 40 > window.innerHeight ? Math.max(4, rect.top - 44) : rect.bottom + 6;
+	const left = Math.min(Math.max(4, rect.left), Math.max(4, window.innerWidth - 260));
+	box.style.top = `${top}px`;
+	box.style.left = `${left}px`;
+}
+
+function showPrompt(p: Pending): void {
+	pending = p;
+	const parts = ensurePrompt();
+	window.clearTimeout(errorTimer);
+	parts.msg.className = 'msg';
+	parts.msg.textContent = '📍 Share your location here?';
+	parts.share.hidden = false;
+	parts.share.disabled = false;
+	parts.cancel.hidden = false;
+	parts.box.hidden = false;
+	positionPrompt(p);
+}
+
+function showError(text: string): void {
+	pending = null;
+	const parts = ensurePrompt();
+	parts.msg.className = 'msg err';
+	parts.msg.textContent = text;
+	parts.share.hidden = true;
+	parts.cancel.hidden = true;
+	parts.box.hidden = false;
+	window.clearTimeout(errorTimer);
+	errorTimer = window.setTimeout(hidePrompt, ERROR_DISPLAY_MS);
+}
+
+function hidePrompt(): void {
+	pending = null;
+	if (promptParts) promptParts.box.hidden = true;
+}
+
+async function confirmShare(): Promise<void> {
+	const p = pending;
+	if (!p || busy) return;
+	busy = true;
+	const parts = ensurePrompt();
+	parts.share.disabled = true;
+	parts.msg.textContent = '📍 Locating…';
 
 	try {
-		const coords = await getPosition();
-		const ts = getISO();
-		const url = buildPingmarkUrl(coords.latitude, coords.longitude, ts);
-
-		const tag = el.tagName?.toUpperCase();
-		if (tag === 'INPUT' || tag === 'TEXTAREA') {
-			const input = el as HTMLInputElement | HTMLTextAreaElement;
-			const info = findTriggerInInput(input);
-			if (info && info.end === info.caret) {
-				replaceInInput(input, info.start, info.end, url);
-			}
-		} else if ((el as HTMLElement).isContentEditable) {
-			insertLinkInContentEditable(url);
+		const coords = await requestLocation();
+		const url = buildPingmarkUrl(coords.latitude, coords.longitude, getISO());
+		if (replaceTrigger(p, url)) {
+			hidePrompt();
+		} else {
+			showError('The !@ was edited — nothing inserted.');
 		}
-
-		wmSet(lastExpansion, el, { time: Date.now() });
 	} catch (err) {
-		// Silent fail - geolocation may be denied
+		showError(`Location unavailable${err instanceof Error && err.message ? `: ${err.message}` : ''}`);
 	} finally {
-		wmSet(inflight, el, false);
+		busy = false;
 	}
 }
 
-function onKeyup(e: KeyboardEvent): void {
-	const el = e.target as Element;
-	if (!el || !isEditable(el)) return;
-
-	const last = wmGet(lastExpansion, el);
-	if (last && Date.now() - last.time < DEBOUNCE_MS) return;
-
-	const tag = el.tagName?.toUpperCase();
-	if (tag === 'INPUT' || tag === 'TEXTAREA') {
-		const input = el as HTMLInputElement | HTMLTextAreaElement;
-		const info = findTriggerInInput(input);
-		if (info && info.end === info.caret) {
-			handleTrigger(el);
-		}
-	} else if ((el as HTMLElement).isContentEditable) {
-		const sel = window.getSelection();
-		if (!sel || sel.rangeCount === 0) return;
-		const range = sel.getRangeAt(0);
-		const node = range.startContainer;
-		const offset = range.startOffset;
-		if (node && node.nodeType === Node.TEXT_NODE) {
-			const text = node.nodeValue || '';
-			if (text.slice(0, offset).endsWith(TRIGGER)) {
-				handleTrigger(el);
-			}
-		}
+// ===== Event wiring =====
+function onInput(e: Event): void {
+	if ((e as InputEvent).isComposing || busy) return;
+	const target = e.target as Element | null;
+	// For contentEditable, input fires on the editing host; use the active element.
+	const el = target && isTextField(target) ? target : (document.activeElement as Element | null);
+	if (!isEligible(el)) {
+		if (pending) hidePrompt();
+		return;
 	}
+	const p = detectTrigger(el);
+	if (p) showPrompt(p);
+	else if (pending) hidePrompt();
+}
+
+function onKeydown(e: KeyboardEvent): void {
+	if (!pending || busy) return;
+	if (e.key === 'Escape') {
+		e.preventDefault();
+		e.stopPropagation();
+		hidePrompt();
+	} else if (e.key === 'Tab' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+		e.preventDefault();
+		e.stopPropagation();
+		void confirmShare();
+	}
+}
+
+function onFocusOut(e: FocusEvent): void {
+	if (pending && !busy && e.target === pending.el) hidePrompt();
+}
+
+function onViewportChange(): void {
+	if (pending) positionPrompt(pending);
 }
 
 // ===== Link Preview Card =====
@@ -530,6 +625,10 @@ function upgradePingmarkLinks(root: Element | Document): void {
 	anchors.forEach((a) => {
 		if (a.hasAttribute(PM_UPGRADED_ATTR)) return;
 
+		// Never touch links inside an editor: injecting the card there would
+		// become part of the user's message or corrupt the editor's state.
+		if ((a as HTMLElement).isContentEditable) return;
+
 		const href = a.getAttribute('href') || '';
 		if (!PM_LINK_RE.test(href)) return;
 
@@ -556,7 +655,11 @@ function upgradePingmarkLinks(root: Element | Document): void {
 function init(): void {
 	if (!document.documentElement) return;
 
-	document.addEventListener('keyup', onKeyup, true);
+	document.addEventListener('input', onInput, true);
+	document.addEventListener('keydown', onKeydown, true);
+	document.addEventListener('focusout', onFocusOut, true);
+	window.addEventListener('scroll', onViewportChange, true);
+	window.addEventListener('resize', onViewportChange);
 
 	try {
 		if (document.body) upgradePingmarkLinks(document);
